@@ -1,5 +1,4 @@
 import streamlit as st
-import joblib
 import re
 
 # ==========================
@@ -11,18 +10,6 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="expanded",
 )
-
-# ==========================
-# 🎯 Load Model & Vectorizer
-# ==========================
-model = joblib.load("model/allergen_model.pkl")
-vectorizer = joblib.load("model/allergen_vectorizer.pkl")
-
-common_allergens = [
-    "milk", "eggs", "peanuts", "tree nuts", "fish", "shellfish",
-    "soy", "wheat", "gluten", "sesame", "mustard", "celery",
-    "sulfites", "lupin", "mollusks"
-]
 
 # ==========================
 # ✅ Allergen Synonyms Dictionary (Rule-based Matching)
@@ -49,38 +36,29 @@ allergen_synonyms = {
 # 🧹 Cleaning Function
 # ==========================
 def clean_ingredients(text):
-    text = text.lower()
-    text = re.sub(r"[^\w\s]", " ", text)
-    return text.strip()
+    text = text.lower()  # Convert to lowercase
+    text = re.sub(r"[^\w\s]", " ", text)  # Remove special characters
+    text = re.sub(r"\s+", " ", text).strip()  # Normalize whitespace
+    return text
 
 # ==========================
-# 🔍 Hybrid Prediction Function
+# 🔍 Rule-Based Allergen Detection Function
 # ==========================
-def detect_allergens_hybrid(ingredient_text):
+def detect_allergens_rule_based(ingredient_text):
     cleaned_text = clean_ingredients(ingredient_text)
 
-    # 1️⃣ Model Prediction
-    input_vectorized = vectorizer.transform([cleaned_text])
-    model_prediction = model.predict(input_vectorized)
-    allergens_from_model = {
-        allergen for allergen, present in zip(common_allergens, model_prediction[0]) if present
-    }
-
-    # 2️⃣ Rule-Based Synonym Detection
-    allergens_from_synonyms = set()
+    # Rule-Based Synonym Detection
+    allergens_detected = set()
     for allergen, synonyms in allergen_synonyms.items():
         if allergen in cleaned_text:
-            allergens_from_synonyms.add(allergen)
+            allergens_detected.add(allergen)
         else:
             for synonym in synonyms:
                 if synonym in cleaned_text:
-                    allergens_from_synonyms.add(allergen)
+                    allergens_detected.add(allergen)
                     break
 
-    # 3️⃣ Combine Results
-    combined_allergens = sorted(allergens_from_model.union(allergens_from_synonyms))
-
-    return combined_allergens
+    return sorted(allergens_detected)
 
 # ==========================
 # 🎨 Header and Intro
@@ -90,9 +68,9 @@ st.markdown("<h4 style='text-align: center; color: gray;'>Check ingredients for 
 st.markdown("---")
 
 # ==========================
-# 🍽️ Dish & Ingredients Input Section
+# 🍽 Dish & Ingredients Input Section
 # ==========================
-st.subheader("🍽️ Enter Dish Details:")
+st.subheader("🍽 Enter Dish Details:")
 
 # Dish name input
 dish_name = st.text_input("Dish Name", placeholder="E.g., Paneer Butter Masala")
@@ -108,32 +86,32 @@ ingredients_input = st.text_area(
 # ==========================
 if st.button("🔎 Check for Allergens"):
     if not dish_name.strip():
-        st.warning("⚠️ Please enter the Dish Name.")
+        st.warning("⚠ Please enter the Dish Name.")
     elif not ingredients_input.strip():
-        st.warning("⚠️ Please enter the Ingredients.")
+        st.warning("⚠ Please enter the Ingredients.")
     else:
-        allergens_found = detect_allergens_hybrid(ingredients_input)
+        allergens_found = detect_allergens_rule_based(ingredients_input)
 
-        st.markdown(f"## 🍽️ Dish: **{dish_name}**")
-        st.markdown(f"### 📝 Ingredients: `{ingredients_input}`")
+        st.markdown(f"## 🍽 Dish: *{dish_name}*")
+        st.markdown(f"### 📝 Ingredients: {ingredients_input}")
 
         if not allergens_found:
             st.success("✅ No allergens detected in this dish!")
         else:
             st.error("🚨 Allergens detected in this dish:")
             for allergen in allergens_found:
-                st.write(f"🔸 **{allergen.capitalize()}**")
+                st.write(f"🔸 *{allergen.capitalize()}*")
 
 # ==========================
 # 🧠 Sidebar Information
 # ==========================
-st.sidebar.title("ℹ️ About This App")
+st.sidebar.title("ℹ About This App")
 st.sidebar.info("""
 This system helps users detect common food allergens by analyzing the ingredient list of food products and dishes.
 It's designed for:
-- Individuals with **food allergies**
+- Individuals with *food allergies*
 - Health-conscious consumers
-- Parents concerned about **children's diets**
+- Parents concerned about *children's diets*
 """)
 
 st.sidebar.markdown("---")
@@ -166,10 +144,9 @@ st.sidebar.info("""
 """)
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("Made with ❤️ by Brainstorm Troopers")
 
 # ==========================
 # 🎉 Footer
 # ==========================
 st.markdown("---")
-st.markdown("<h6 style='text-align: center;'>🚀 Powered by Machine Learning | Hackathon Project</h6>", unsafe_allow_html=True)
+st.markdown("<h6 style='text-align: center;'>🚀 Powered by Rule-Based Matching | Hackathon Project</h6>", unsafe_allow_html=True)
